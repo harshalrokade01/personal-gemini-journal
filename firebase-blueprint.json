@@ -1,0 +1,30 @@
+{
+  "entities": {
+    "UserProfile": {
+      "collection": "users",
+      "fields": {
+        "uid": { "type": "string", "description": "Unique Firebase Auth UID" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "email": { "type": "string", "description": "User email" },
+        "photoURL": { "type": "string", "description": "User avatar URL" },
+        "createdAt": { "type": "string", "description": "ISO timestamp of account creation" },
+        "lastLoginAt": { "type": "string", "description": "ISO timestamp of last sign-in" }
+      }
+    },
+    "Reflection": {
+      "collection": "users/{userId}/reflections",
+      "fields": {
+        "id": { "type": "string", "description": "Document ID" },
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID" },
+        "title": { "type": "string", "description": "Title of reflection/journal entry" },
+        "category": { "type": "string", "description": "Reflection category: daily, brainstorm, gratitude, challenge, general" },
+        "initialPrompt": { "type": "string", "description": "User initial prompt/entry text" },
+        "messages": { "type": "array", "description": "Array of multi-turn conversation objects [{role, content, timestamp}]" },
+        "tags": { "type": "array", "description": "Array of topic tags" },
+        "summary": { "type": "string", "description": "Brief AI summary or key takeaways" },
+        "createdAt": { "type": "string", "description": "Creation ISO timestamp" },
+        "updatedAt": { "type": "string", "description": "Last update ISO timestamp" }
+      }
+    }
+  }
+}
