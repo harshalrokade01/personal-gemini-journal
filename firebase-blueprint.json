@@ -21,6 +21,7 @@
         "initialPrompt": { "type": "string", "description": "User initial prompt/entry text" },
         "messages": { "type": "array", "description": "Array of multi-turn conversation objects [{role, content, timestamp}]" },
         "tags": { "type": "array", "description": "Array of topic tags" },
+        "location": { "type": "object", "description": "Optional location metadata {latitude, longitude, placeName, locality, country, accuracy, timestamp}" },
         "summary": { "type": "string", "description": "Brief AI summary or key takeaways" },
         "createdAt": { "type": "string", "description": "Creation ISO timestamp" },
         "updatedAt": { "type": "string", "description": "Last update ISO timestamp" }

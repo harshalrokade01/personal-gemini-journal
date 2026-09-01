@@ -45,7 +45,7 @@ export const ModePicker: React.FC<ModePickerProps> = ({
   disabled = false,
 }) => {
   return (
-    <div className="flex flex-wrap gap-1.5 p-1 bg-gray-100 rounded-xl border border-gray-200">
+    <div className="flex flex-wrap gap-1.5 p-1 bg-[var(--bg-muted)] rounded-xl border border-[var(--border-primary)]">
       {(Object.keys(MODE_CONFIG) as ReflectionMode[]).map((mode) => {
         const item = MODE_CONFIG[mode];
         const Icon = item.icon;
@@ -59,12 +59,12 @@ export const ModePicker: React.FC<ModePickerProps> = ({
             onClick={() => onSelectMode(mode)}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
               isSelected
-                ? 'bg-white text-indigo-700 shadow-xs border border-indigo-100 font-medium'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
+                ? 'bg-[var(--bg-surface)] text-indigo-500 shadow-xs border border-[var(--border-primary)] font-medium'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
             title={item.tag}
           >
-            <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-indigo-600' : 'text-gray-400'}`} />
+            <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-indigo-500' : 'text-[var(--text-muted)]'}`} />
             <span>{item.label}</span>
           </button>
         );

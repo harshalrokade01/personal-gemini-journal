@@ -88,7 +88,166 @@ app.get('/api/health', (req: Request, res: Response) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+    hasGoogleMapsKey: Boolean(process.env.GOOGLE_MAPS_API_KEY),
   });
+});
+
+// Secure Server-Side Reverse Geocoding API Proxy
+// Protects Google Maps API Key from client exposure and provides seamless fallback
+app.post('/api/location/reverse-geocode', async (req: Request, res: Response) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const { latitude, longitude } = body;
+
+    if (
+      typeof latitude !== 'number' ||
+      typeof longitude !== 'number' ||
+      isNaN(latitude) ||
+      isNaN(longitude) ||
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid numeric latitude (-90 to 90) and longitude (-180 to 180) are required.',
+      });
+    }
+
+    const latFixed = latitude.toFixed(4);
+    const lngFixed = longitude.toFixed(4);
+    const formattedCoords = `${Math.abs(latitude).toFixed(3)}° ${latitude >= 0 ? 'N' : 'S'}, ${Math.abs(longitude).toFixed(3)}° ${longitude >= 0 ? 'E' : 'W'}`;
+
+    let placeName = formattedCoords;
+    let locality = '';
+    let country = '';
+    let formattedAddress = formattedCoords;
+
+    const mapsKey = process.env.GOOGLE_MAPS_API_KEY;
+
+    if (mapsKey) {
+      try {
+        const mapsUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${encodeURIComponent(mapsKey)}`;
+        const mapsRes = await fetch(mapsUrl, { signal: AbortSignal.timeout(4000) });
+        if (mapsRes.ok) {
+          const mapsData = await mapsRes.json();
+          if (mapsData.status === 'OK' && mapsData.results && mapsData.results.length > 0) {
+            const result = mapsData.results[0];
+            formattedAddress = result.formatted_address || formattedCoords;
+
+            // Extract locality, state, country
+            const components = result.address_components || [];
+            let city = '';
+            let state = '';
+            let cName = '';
+
+            for (const c of components) {
+              if (c.types.includes('locality')) city = c.long_name;
+              else if (!city && c.types.includes('sublocality')) city = c.long_name;
+              else if (!city && c.types.includes('postal_town')) city = c.long_name;
+              else if (c.types.includes('administrative_area_level_1')) state = c.short_name;
+              else if (c.types.includes('country')) cName = c.long_name;
+            }
+
+            locality = city || state || '';
+            country = cName || '';
+
+            if (city && (state || cName)) {
+              placeName = `${city}, ${state || cName}`;
+            } else if (state && cName) {
+              placeName = `${state}, ${cName}`;
+            } else if (cName) {
+              placeName = cName;
+            } else {
+              placeName = formattedAddress.split(',').slice(0, 2).join(', ').trim() || formattedCoords;
+            }
+
+            return res.json({
+              success: true,
+              latitude,
+              longitude,
+              placeName,
+              locality,
+              country,
+              formattedAddress,
+              source: 'google_maps',
+            });
+          }
+        }
+      } catch (mapsErr) {
+        console.warn('Google Maps reverse geocoding fallback triggered:', mapsErr);
+      }
+    }
+
+    // High-availability open geocoding fallback (Nominatim)
+    try {
+      const openUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=14&addressdetails=1`;
+      const openRes = await fetch(openUrl, {
+        headers: {
+          'User-Agent': 'ReflectAI-Journal/1.0',
+          'Accept': 'application/json',
+        },
+        signal: AbortSignal.timeout(3000),
+      });
+
+      if (openRes.ok) {
+        const openData = await openRes.json();
+        if (openData && openData.address) {
+          const addr = openData.address;
+          const city = addr.city || addr.town || addr.village || addr.suburb || addr.municipality || '';
+          const state = addr.state || addr.region || '';
+          const cName = addr.country || '';
+
+          locality = city || state;
+          country = cName;
+
+          if (city && (state || cName)) {
+            placeName = `${city}, ${state || cName}`;
+          } else if (state && cName) {
+            placeName = `${state}, ${cName}`;
+          } else if (cName) {
+            placeName = cName;
+          } else if (openData.display_name) {
+            placeName = openData.display_name.split(',').slice(0, 2).join(', ').trim();
+          }
+
+          formattedAddress = openData.display_name || formattedCoords;
+
+          return res.json({
+            success: true,
+            latitude,
+            longitude,
+            placeName: placeName || formattedCoords,
+            locality,
+            country,
+            formattedAddress,
+            source: 'open_geocoding',
+          });
+        }
+      }
+    } catch (openErr) {
+      console.warn('Open geocoding fallback resolved to formatted coordinates:', openErr);
+    }
+
+    // Coordinate fallback if network geocoding is unavailable
+    return res.json({
+      success: true,
+      latitude,
+      longitude,
+      placeName: formattedCoords,
+      locality: '',
+      country: '',
+      formattedAddress: `Coordinates: ${latFixed}, ${lngFixed}`,
+      source: 'coordinates_fallback',
+    });
+  } catch (error: any) {
+    console.error('Error handling /api/location/reverse-geocode:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to process reverse geocoding request.',
+    });
+  }
 });
 
 // Gemini Multi-turn Reflection API Proxy
@@ -96,7 +255,7 @@ app.post('/api/gemini/reflect', async (req: Request, res: Response) => {
   try {
     // Defensive payload ingestion with null-safe destructuring
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const { category = 'general', mode = 'reflect', userPrompt = '', history = [] } = body;
+    const { category = 'general', mode = 'reflect', userPrompt = '', history = [], location } = body;
 
     if (!userPrompt || typeof userPrompt !== 'string' || !userPrompt.trim()) {
       return res.status(400).json({
@@ -105,10 +264,19 @@ app.post('/api/gemini/reflect', async (req: Request, res: Response) => {
       });
     }
 
-    // System instruction tailored to reflection mode and category
+    let locationContext = '';
+    if (location && typeof location === 'object') {
+      if (location.placeName) {
+        locationContext = `\nAttached Entry Location: "${location.placeName}". Gently reflect this setting only when natural or relevant to the mood/environment.`;
+      } else if (typeof location.latitude === 'number' && typeof location.longitude === 'number') {
+        locationContext = `\nAttached Entry Coordinates: ${location.latitude.toFixed(3)}, ${location.longitude.toFixed(3)}.`;
+      }
+    }
+
+    // System instruction tailored to reflection mode, category, and location context
     const systemPrompt = `You are a thoughtful, empathetic, and insightful philosophical reflection partner and personal journal assistant.
 Category context: "${category}".
-Mode context: "${mode}".
+Mode context: "${mode}".${locationContext}
 
 Guidelines:
 1. Provide deep, constructive, and articulate reflections.

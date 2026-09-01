@@ -2,6 +2,17 @@ export type ReflectionCategory = 'daily' | 'brainstorm' | 'gratitude' | 'challen
 
 export type ReflectionMode = 'reflect' | 'summarize' | 'brainstorm' | 'critique' | 'action_items';
 
+export interface JournalLocation {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  placeName?: string;
+  locality?: string;
+  country?: string;
+  formattedAddress?: string;
+  timestamp?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'model';
@@ -19,6 +30,7 @@ export interface Reflection {
   initialPrompt: string;
   messages: ChatMessage[];
   tags: string[];
+  location?: JournalLocation | null;
   summary?: string;
   createdAt: string; // ISO string
   updatedAt: string; // ISO string

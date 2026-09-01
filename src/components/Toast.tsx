@@ -37,22 +37,22 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
     <div
       className={`pointer-events-auto p-3.5 rounded-xl border shadow-lg flex items-center justify-between gap-3 text-xs sm:text-sm animate-in slide-in-from-bottom-3 duration-200 ${
         toast.type === 'success'
-          ? 'bg-white border-emerald-200 text-emerald-800'
+          ? 'bg-[var(--bg-surface)] border-emerald-500/30 text-emerald-500 shadow-emerald-500/5'
           : toast.type === 'error'
-          ? 'bg-white border-rose-200 text-rose-800'
-          : 'bg-white border-gray-200 text-gray-800'
+          ? 'bg-[var(--bg-surface)] border-rose-500/30 text-rose-500 shadow-rose-500/5'
+          : 'bg-[var(--bg-surface)] border-[var(--border-primary)] text-[var(--text-primary)]'
       }`}
     >
       <div className="flex items-center gap-2.5">
-        {toast.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
-        {toast.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />}
-        {toast.type === 'info' && <Info className="w-4 h-4 text-indigo-600 shrink-0" />}
-        <span className="font-medium text-gray-900">{toast.text}</span>
+        {toast.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
+        {toast.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />}
+        {toast.type === 'info' && <Info className="w-4 h-4 text-indigo-500 shrink-0" />}
+        <span className="font-medium text-[var(--text-primary)]">{toast.text}</span>
       </div>
 
       <button
         onClick={() => onDismiss(toast.id)}
-        className="text-gray-400 hover:text-gray-600 cursor-pointer"
+        className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer transition-colors"
       >
         <X className="w-3.5 h-3.5" />
       </button>

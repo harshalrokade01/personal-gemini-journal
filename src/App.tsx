@@ -17,8 +17,10 @@ import { ReflectionModal } from './components/ReflectionModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { Sparkles, BookOpen, PenTool, Layers } from 'lucide-react';
+import { useTheme } from './lib/theme';
 
 export default function App() {
+  const { theme, toggleTheme } = useTheme();
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -256,7 +258,7 @@ export default function App() {
   const targetDeleteReflection = reflections.find((r) => r.id === deleteTargetId);
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] text-gray-900 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text-primary)] flex flex-col font-sans selection:bg-indigo-500/20 selection:text-indigo-600 transition-colors duration-200">
       {/* Toast Notification Container */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
 
@@ -268,15 +270,17 @@ export default function App() {
         isSaving={isSaving}
         lastSavedAt={lastSavedAt}
         activeCount={reflections.length}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       {/* Main View Area */}
       {authLoading ? (
         <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-4">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center animate-pulse">
+          <div className="w-10 h-10 rounded-2xl bg-[var(--badge-bg)] border border-[var(--badge-border)] text-indigo-500 flex items-center justify-center animate-pulse">
             <Sparkles className="w-6 h-6 animate-spin" />
           </div>
-          <p className="text-sm font-medium text-gray-500">Initializing secure session...</p>
+          <p className="text-sm font-medium text-[var(--text-muted)]">Initializing secure session...</p>
         </div>
       ) : !user ? (
         /* Landing View when unauthenticated */
@@ -289,13 +293,13 @@ export default function App() {
         /* Authenticated Workspace */
         <div className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6 flex flex-col">
           {/* Mobile Tab Switcher */}
-          <div className="flex lg:hidden items-center justify-center gap-1.5 mb-3 bg-gray-100 p-1 rounded-xl border border-gray-200">
+          <div className="flex lg:hidden items-center justify-center gap-1.5 mb-3 bg-[var(--bg-muted)] p-1 rounded-xl border border-[var(--border-primary)]">
             <button
               onClick={() => setMobileTab('composer')}
               className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all ${
                 mobileTab === 'composer'
-                  ? 'bg-white text-gray-900 shadow-xs'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-xs border border-[var(--border-primary)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
               }`}
             >
               <PenTool className="w-3.5 h-3.5" />
@@ -305,8 +309,8 @@ export default function App() {
               onClick={() => setMobileTab('history')}
               className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all ${
                 mobileTab === 'history'
-                  ? 'bg-white text-gray-900 shadow-xs'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-xs border border-[var(--border-primary)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
               }`}
             >
               <BookOpen className="w-3.5 h-3.5" />

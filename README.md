@@ -1,6 +1,17 @@
-# ReflectAI — Private Journal & Multi-Turn Reflection Assistant
+# ReflectAI — Private Journal & Location-Aware Reflection Assistant
 
-ReflectAI is a full-stack, user-authenticated reflection and journaling application built with **React**, **TypeScript**, **Express**, **Firebase Authentication (Google Sign-In)**, **Cloud Firestore**, and **Gemini 3.6 Flash**.
+ReflectAI is a full-stack, user-authenticated reflection and journaling application built with **React**, **TypeScript**, **Express**, **Firebase Authentication (Google Sign-In)**, **Cloud Firestore**, **Google Maps / Reverse Geocoding API**, and **Gemini 3.6 Flash**.
+
+---
+
+## 📍 Location-Aware Journal Entries
+
+ReflectAI allows users to optionally attach verified geographic context to journal entries:
+- **Explicit User Interaction**: Geolocation requests are executed client-side only when the user explicitly clicks **"Add Location"** and grants browser permissions.
+- **Zero Client-Side Secret Exposure**: Reverse geocoding runs securely server-side (`/api/location/reverse-geocode`). `GOOGLE_MAPS_API_KEY` is never exposed in frontend bundles and falls back gracefully to open geocoding or coordinate pairs.
+- **Editable & Removable Context**: Users can remove an attached location at any point before or after saving.
+- **Location-Enhanced Reflections**: When attached, Gemini AI reflects on thoughts with mindful awareness of the user's setting and environment.
+- **Strict User Data Isolation**: Location data is saved strictly inside the authenticated user's private Firestore subcollection (`/users/{userId}/reflections/{reflectionId}`) guarded by security rules.
 
 ---
 
@@ -8,11 +19,12 @@ ReflectAI is a full-stack, user-authenticated reflection and journaling applicat
 
 | Security Zone | Architecture Pattern | Countermeasure |
 | :--- | :--- | :--- |
-| **API Secret Protection** | Backend Proxy (`/api/gemini/reflect`) | `GEMINI_API_KEY` is loaded in Node.js runtime and never exposed in frontend client bundles. |
+| **API Secret Protection** | Backend Proxy (`/api/gemini/reflect`, `/api/location/reverse-geocode`) | `GEMINI_API_KEY` and `GOOGLE_MAPS_API_KEY` are loaded in Node.js runtime and never exposed to client browsers. |
+| **Location Privacy** | Explicit Opt-In & Minimization | Geolocation triggers only on explicit click. Precise coordinates are isolated to the owner's Firestore documents. |
 | **User Data Isolation** | Firestore Security Rules | Subcollections under `/users/{userId}/reflections` strictly enforce `request.auth.uid == userId`. |
 | **Authentication** | Google OAuth Federated Sign-In | No plain passwords stored or processed in application code. |
 | **Resilient AI Pipeline** | Automated Model Fallback Ladder | Tiered failover: `gemini-3.6-flash` &rarr; `gemini-3.1-flash-lite` &rarr; `gemini-flash-latest` &rarr; `gemini-3.7-flash`. |
-| **Payload Sanitization** | Undefined Stripping & Schema Guards | All database writes stripped of `undefined` fields to prevent driver rejections. |
+| **Payload Sanitization** | Undefined Stripping & Schema Guards | All database writes sanitized and stripped of `undefined` fields to prevent driver rejections. |
 
 ---
 
@@ -40,18 +52,26 @@ gcloud services enable \
 
 ### 2. Secret Manager Configuration
 
-Store your `GEMINI_API_KEY` in Google Cloud Secret Manager and grant access to the Cloud Run runtime service account:
+Store your `GEMINI_API_KEY` (and optional `GOOGLE_MAPS_API_KEY`) in Google Cloud Secret Manager and grant access to the Cloud Run runtime service account:
 
 ```bash
-# Create and populate the secret
+# Create and populate Gemini API Key secret
 gcloud secrets create GEMINI_API_KEY --replication-policy="automatic"
 echo -n "YOUR_GEMINI_API_KEY" | gcloud secrets versions add GEMINI_API_KEY --data-file=-
+
+# (Optional) Create Google Maps API Key secret for high-accuracy geocoding
+gcloud secrets create GOOGLE_MAPS_API_KEY --replication-policy="automatic"
+echo -n "YOUR_MAPS_API_KEY" | gcloud secrets versions add GOOGLE_MAPS_API_KEY --data-file=-
 
 # Obtain project number
 export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
 
-# Grant the default Cloud Run Compute Service Account access to the secret
+# Grant Cloud Run Compute Service Account access to the secrets
 gcloud secrets add-iam-policy-binding GEMINI_API_KEY \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+
+gcloud secrets add-iam-policy-binding GOOGLE_MAPS_API_KEY \
   --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
   --role="roles/secretmanager.secretAccessor"
 ```
@@ -99,7 +119,7 @@ firebase deploy --only firestore:rules
 
 ### 4. Build and Deploy to Cloud Run
 
-Deploy the container to Cloud Run with Secret Manager binding and required challenge resource labeling:
+Deploy the container to Cloud Run with Secret Manager bindings and required challenge resource labeling:
 
 ```bash
 # Deploy to Google Cloud Run
@@ -108,7 +128,7 @@ gcloud run deploy reflect-ai \
   --region $REGION \
   --platform managed \
   --allow-unauthenticated \
-  --set-secrets="GEMINI_API_KEY=GEMINI_API_KEY:latest" \
+  --set-secrets="GEMINI_API_KEY=GEMINI_API_KEY:latest,GOOGLE_MAPS_API_KEY=GOOGLE_MAPS_API_KEY:latest" \
   --set-env-vars="NODE_ENV=production"
 
 # Apply mandatory campaign verification label
@@ -121,34 +141,41 @@ gcloud run services update reflect-ai \
 
 ## 🧪 Interactive Functional Walkthrough & Test Suite
 
-Follow these steps to verify full functionality:
+Follow these steps to verify all features:
 
 1. **Authentication**:
-   - Navigate to the landing page.
+   - Navigate to the application home screen.
    - Click **"Sign In with Google"**. Complete authentication.
    - Verify redirect to the private dashboard with your name and avatar displayed.
 
-2. **Compose & Multi-Turn AI Reflection**:
+2. **Location-Aware Journal Entries**:
+   - In the composer header, click the **"Add Location"** button.
+   - When prompted by the browser, grant Geolocation permission.
+   - Verify the location badge appears with detected place name/city and coordinates.
+   - Click the **"X"** on the location pill to test removing the location.
+   - Click **"Add Location"** again to re-attach your current setting.
+
+3. **Compose & Multi-Turn AI Reflection**:
    - Enter a title (or leave blank for auto-titling).
-   - Select a category (e.g. *Strategic Ideation*) and lens (e.g. *Reflect & Guide*).
-   - Click a starter prompt or type custom text (e.g. *"Should I migrate our database to Firestore?"*).
+   - Select a category (e.g. *Daily Reflection*) and lens (e.g. *Reflect & Guide*).
+   - Type custom thoughts (e.g. *"Taking a breather during my morning walk. Feeling refreshed and ready for the day."*).
    - Press **Ctrl+Enter** or click **Reflect with Gemini**.
-   - Verify Gemini responds using `gemini-3.6-flash`.
-   - Send a follow-up message (e.g. *"What are 3 trade-offs to look out for?"*).
-   - Verify multi-turn conversational context is maintained.
+   - Verify Gemini acknowledges your reflection and environment using `gemini-3.6-flash`.
+   - Send a follow-up message to verify conversational context.
 
-3. **Firestore Cloud Persistence**:
-   - Check the top navbar and composer to confirm the entry is saved to Firestore.
-   - Click **"New Entry"** to start another reflection.
-   - Check the **Journal History** sidebar to see the previous entry listed with timestamp, category chip, and message count.
+4. **Firestore Cloud Persistence & History**:
+   - Check that the entry auto-saves to Firestore with the attached location.
+   - Check the **Journal History** sidebar to see the entry listed with its green location indicator badge.
+   - Use the search bar to search for the location name or city; confirm the entry is filtered correctly.
 
-4. **Search, Filter & Modal View**:
-   - In Journal History, search for a keyword or click a category filter pill.
-   - Click the expand icon on an entry card to open the **Full Reader Modal**.
-   - Test **"Copy Session"** and **"Download Markdown"**.
+5. **Reader Modal & Export**:
+   - Click the reader icon on the entry card to open the **Full Reader Modal**.
+   - Verify the attached location badge and metadata are displayed cleanly.
+   - Click **"Download Markdown"** and verify the exported file contains the `**Location**` metadata.
 
-5. **User Isolation Verification**:
+6. **User Isolation Verification**:
    - Click **Sign Out** in the top navbar.
-   - Sign in with a second Google account.
-   - Verify the second account's history is empty and does not reveal the first account's reflections.
-   - Sign back into the first account and confirm all previous entries are intact.
+   - Sign in with a different Google account.
+   - Verify the second account cannot see the first account's reflections or location records.
+   - Sign back into the original account and confirm all data remains securely accessible.
+

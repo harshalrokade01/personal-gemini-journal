@@ -60,10 +60,10 @@ export const CategoryPicker: React.FC<CategoryPickerProps> = ({
             className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
               isSelected
                 ? 'bg-indigo-600 text-white shadow-xs'
-                : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 hover:text-gray-900'
+                : 'bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-primary)] hover:text-[var(--text-primary)]'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-indigo-600'}`} />
+            <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-indigo-500'}`} />
             <span>{item.label}</span>
           </button>
         );
